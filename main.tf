@@ -92,27 +92,31 @@ resource "aws_lb_listener" "http" {
 }
 
 resource "aws_instance" "simple" {
-  ami = "ami-098e39bafa7e7303d"
+  ami           = "ami-098e39bafa7e7303d"
   instance_type = "t3.micro"
-  key_name= "test"
+  key_name      = "test"
 
+  user_data_replace_on_change = true
 
   user_data = <<-EOF
-  #!/bin/bash
-  set -euo pipefail
+#!/bin/bash
+set -euxo pipefail
 
-  dnf update -y
-  dnf install -y python3 python3-pip
+exec > >(tee -a /var/log/user-data.log) 2>&1
 
-  mkdir -p /opt/flask-app
-  cd /opt/flask-app
+dnf update -y
+dnf install -y python3 python3-pip
 
-  python3 -m venv venv
-  source venv/bin/activate
-  pip install --upgrade pip
-  pip install flask gunicorn
+mkdir -p /opt/flask-app
+cd /opt/flask-app
 
-  cat > /opt/flask-app/app.py <<'PY'
+python3 -m venv venv
+source /opt/flask-app/venv/bin/activate
+
+pip install --upgrade pip
+pip install flask gunicorn
+
+cat > /opt/flask-app/app.py <<'PY'
 from flask import Flask
 
 app = Flask(__name__)
@@ -129,7 +133,7 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=80)
 PY
 
-  cat > /etc/systemd/system/flask-app.service <<'SERVICE'
+cat > /etc/systemd/system/flask-app.service <<'SERVICE'
 [Unit]
 Description=Flask App
 After=network.target
@@ -144,14 +148,15 @@ User=root
 WantedBy=multi-user.target
 SERVICE
 
-  systemctl daemon-reload
-  systemctl enable flask-app
-  systemctl start flask-app
+systemctl daemon-reload
+systemctl enable flask-app
+systemctl restart flask-app
 
-  echo "user_data completed" > /tmp/user_data_done.txt
+echo "user_data completed" > /tmp/user_data_done.txt
 EOF
 
   vpc_security_group_ids = [aws_security_group.ec2.id]
+
   tags = {
     Name = "test_ec2"
   }
