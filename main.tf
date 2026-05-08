@@ -98,14 +98,58 @@ resource "aws_instance" "simple" {
 
 
   user_data = <<-EOF
-    #!/bin/bash
-    set -euo pipefail
+  #!/bin/bash
+  set -euo pipefail
 
-    dnf update -y
-    dnf install -y git
+  dnf update -y
+  dnf install -y python3 python3-pip
 
-    echo "user_data completed" > /tmp/user_data_done.txt
-  EOF
+  mkdir -p /opt/flask-app
+  cd /opt/flask-app
+
+  python3 -m venv venv
+  source venv/bin/activate
+  pip install --upgrade pip
+  pip install flask gunicorn
+
+  cat > /opt/flask-app/app.py <<'PY'
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route("/")
+def index():
+    return "Hello from Flask on EC2 behind ALB!"
+
+@app.route("/health")
+def health():
+    return "OK", 200
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=80)
+PY
+
+  cat > /etc/systemd/system/flask-app.service <<'SERVICE'
+[Unit]
+Description=Flask App
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/flask-app
+ExecStart=/opt/flask-app/venv/bin/gunicorn -w 2 -b 0.0.0.0:80 app:app
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+  systemctl daemon-reload
+  systemctl enable flask-app
+  systemctl start flask-app
+
+  echo "user_data completed" > /tmp/user_data_done.txt
+EOF
 
   vpc_security_group_ids = [aws_security_group.ec2.id]
   tags = {
