@@ -171,6 +171,25 @@ resource "aws_lb" "app" {
   subnets = data.aws_subnets.default.ids
 }
 
+resource "aws_cloudfront_distribution" "main" {
+  enabled = true
+  comment = "CloudFront for ALB origin"
+
+  origin {
+    domain_name = aws_lb.app.dns_name
+    origin_id = "alb_origin"
+
+    custom_origin_config {
+      http_port = 80
+      https_port = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_policy = ["TLSv1.2"]
+    }
+  }
+
+  
+}
+
 output "ec2_public_ip" {
   value = aws_instance.simple.public_ip
 }
