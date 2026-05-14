@@ -48,13 +48,6 @@ resource "aws_security_group" "test" {
   vpc_id = data.aws_vpc.default.id
 
   ingress {
-    from_port = 80
-    to_port = 80
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
     from_port = 443
     to_port = 443
     protocol = "tcp"
@@ -87,10 +80,12 @@ resource "aws_lb_target_group_attachment" "app" {
   port = 80
 }
 
-resource "aws_lb_listener" "http" {
+resource "aws_lb_listener" "https" {
   load_balancer_arn = aws_lb.app.arn
-  port = 80
-  protocol = "HTTP"
+  port = 443
+  protocol = "HTTPS"
+  
+  certificate_arn = aws_acm_certificate_validation.alb.certificate_arn
 
   default_action {
     type = "forward"
@@ -183,13 +178,13 @@ resource "aws_cloudfront_distribution" "main" {
   comment = "CloudFront for ALB origin"
 
   origin {
-    domain_name = aws_lb.app.dns_name
+    domain_name = var.origin_domain_name
     origin_id = "alb_origin"
 
     custom_origin_config {
       http_port = 80
       https_port = 443
-      origin_protocol_policy = "http-only"
+      origin_protocol_policy = "https-only"
       origin_ssl_protocols = ["TLSv1.2"]
     }
   }
