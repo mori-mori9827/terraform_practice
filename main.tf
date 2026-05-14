@@ -218,7 +218,7 @@ resource "aws_cloudfront_distribution" "main" {
 }
 
 data "aws_route53_zone" "main" {
-  name = cloudlaboratory.click.
+  name = "${var.root_domain_name}."
   private_zone = false
 }
 
@@ -233,6 +233,28 @@ resource "aws_acm_certificate" "alb" {
   tags {
     Name = "${var.project_name}-alb-cert"
   }
+}
+
+resource "aws_route53_record" "alb_cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.alb.domain_validation_options :
+    dvo.domain_name => {
+      name = dvo.resource_record_name
+      type = dvo.resource_record_type
+      record = dvo.resource_record_value
+    }
+  }
+
+  zone_id = data.aws_route53_zone.main.zone_id
+  name = each.value.name
+  type = each.value.type
+  ttl = 60
+  records = [each.value.record]
+}
+
+resource "aws_acm_certificate_validation" "alb" {
+  certificate_arn = aws_acm_certificate.alb.arn
+  validation_record_fqdns = [for record in aws_route53_record.alb_cert_validation : record.fqdn]
 }
 
 output "ec2_public_ip" {
