@@ -225,14 +225,14 @@ data "aws_route53_zone" "main" {
 }
 
 resource "aws_acm_certificate" "alb" {
-  domain_name = var.origin.domain.name
+  domain_name = var.origin_domain_name
   validation_method = "DNS"
 
   lifecycle {
     create_before_destroy = true
   }
    
-  tags {
+  tags = {
     Name = "${var.project_name}-alb-cert"
   }
 }
@@ -257,6 +257,18 @@ resource "aws_route53_record" "alb_cert_validation" {
 resource "aws_acm_certificate_validation" "alb" {
   certificate_arn = aws_acm_certificate.alb.arn
   validation_record_fqdns = [for record in aws_route53_record.alb_cert_validation : record.fqdn]
+}
+
+resource "aws_route53_record" "alb_origin" {
+  zone_id = data.aws_route53_zone.main.zone_id
+  name = var.origin_domain_name
+  type = "A"
+
+  alias {
+    name = aws_lb.app.dns_name
+    zone_id = aws_lb.app.zone_id
+    evaluate_target_health = true
+  }
 }
 
 output "ec2_public_ip" {
