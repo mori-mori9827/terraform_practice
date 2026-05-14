@@ -20,6 +20,7 @@ data "aws_subnets" "default" {
 
 resource "aws_security_group" "ec2" {
   name = "ssh_sg"
+  vpc_id = data.aws_vpc.default.id
   
   ingress {
     from_port = 80
@@ -176,6 +177,11 @@ resource "aws_lb" "app" {
 resource "aws_cloudfront_distribution" "main" {
   enabled = true
   comment = "CloudFront for ALB origin"
+
+  depends_on = [
+    aws_lb_listener.https,
+    aws_route53_record.alb_origin
+  ]
 
   origin {
     domain_name = var.origin_domain_name
