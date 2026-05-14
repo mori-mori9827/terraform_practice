@@ -217,6 +217,24 @@ resource "aws_cloudfront_distribution" "main" {
   }
 }
 
+data "aws_route53_zone" "main" {
+  name = cloudlaboratory.click.
+  private_zone = false
+}
+
+resource "aws_acm_certificate" "alb" {
+  domain_name = var.origin.domain.name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+   
+  tags {
+    Name = "${var.project_name}-alb-cert"
+  }
+}
+
 output "ec2_public_ip" {
   value = aws_instance.simple.public_ip
 }
